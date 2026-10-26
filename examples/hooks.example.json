@@ -1,0 +1,55 @@
+{
+  "description": "Disabled four-event trial example; configure and trust locally only after review.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<ABSOLUTE_PROJECT_PATH>/hooks/collect.mjs\"",
+            "async": true,
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "^(ys_researcher|ys_reviewer)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<ABSOLUTE_PROJECT_PATH>/hooks/collect.mjs\"",
+            "async": true,
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^(ys_researcher|ys_reviewer)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<ABSOLUTE_PROJECT_PATH>/hooks/collect.mjs\"",
+            "async": true,
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<ABSOLUTE_PROJECT_PATH>/hooks/collect.mjs\"",
+            "async": true,
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
