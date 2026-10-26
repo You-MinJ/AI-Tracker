@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "node server/index.mjs",
     "test": "node --test test/*.test.mjs",

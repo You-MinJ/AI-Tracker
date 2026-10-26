@@ -13,3 +13,16 @@ import {redact}from'../server/model.mjs';
 import {SelectionGuard}from'../src/selection-guard.mjs';
 test('quoted and nested JSON secrets, JSON strings and Authorization are masked',()=>{const secret='SYNTHETIC_ONLY_SECRET_123456',password='SYNTHETIC_ONLY_PASSWORD_123456';const input={api_key:secret,password,nested:{apiKey:secret,authorization:'Bearer '+secret,list:[{refresh_token:secret}]},payload:JSON.stringify({clientSecret:secret})};for(const text of [JSON.stringify(input),JSON.stringify(JSON.stringify(input)),`prefix ${JSON.stringify(input)}`,`Authorization: Bearer ${secret}`,`password="${password}"`])for(const fn of [redact,clean]){const result=fn(text);assert.ok(!result.includes(secret));assert.ok(!result.includes(password));}});
 test('late A detail, pagination and turn responses cannot overwrite selected B',async()=>{const guard=new SelectionGuard();let shown='B';guard.select('A','turn-a');const detailA=guard.capture(),turnsA=guard.capture('turns');guard.select('B','turn-b');const detailB=guard.capture();const apply=(ticket,value)=>{if(guard.accepts(ticket))shown=value};apply(detailB,'B');await Promise.resolve();apply(detailA,'A');apply(turnsA,'A-turns');assert.equal(shown,'B');const older=guard.capture();const newer=guard.capture();apply(newer,'B-newer');apply(older,'B-older');assert.equal(shown,'B-newer');});
+test('subagent activity preserves completion evidence and same-turn ID without private paths',()=>{
+ const id='00000000-0000-0000-0000-000000000002';
+ const row={turnId:'chosen',item:{id:'synthetic-activity',type:'subAgentActivity',kind:'completed',agentThreadId:id,agentPath:'/SYNTHETIC/private-path'}};
+ const projected=projectEntry(row,'chosen');
+ assert.deepEqual(projected.receivers,[id]);assert.equal(projected.agentStates[0].status,'completed');assert.ok(!JSON.stringify(projected).includes('private-path'));assert.equal(projectEntry(row,'different'),null);
+});
+test('collab tool completion stays distinct from receiving agent completion',()=>{
+ const id='00000000-0000-0000-0000-000000000002';
+ const projected=projectEntry({turnId:'chosen',item:{id:'synthetic-wait',type:'collabAgentToolCall',tool:'wait',status:'completed',receiverThreadIds:[id],agentsStates:{[id]:{status:'running',message:'not forwarded'}}}},'chosen');
+ assert.equal(projected.status,'completed');assert.equal(projected.agentStates[0].status,'running');assert.equal(projected.agentStates[0].message,null);
+});
+
+test('activity observes an agent ID without inventing a tool invocation',()=>{const activity=projectEntry({turnId:'t',item:{id:'synthetic-done',type:'subAgentActivity',kind:'completed',agentThreadId:'synthetic-id'}},'t');assert.equal(metricsOf([activity]).toolCalls,0);assert.deepEqual(metricsOf([activity]).observedAgentIds,['synthetic-id']);});

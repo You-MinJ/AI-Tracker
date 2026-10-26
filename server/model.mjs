@@ -1,6 +1,16 @@
 import {redactSecrets} from './secrets.mjs';
 export const sources=['cli','vscode','exec','appServer','subAgent','subAgentReview','subAgentCompact','subAgentThreadSpawn','subAgentOther','unknown'];
 export const redact=redactSecrets;
+// Preserve read metadata when a lighter list response omits agent relationships.
+// Execution status and timestamps always come from the current list response.
+export function hydrateThreadMetadata(listed,detail){
+ const merged={...listed};
+ for(const key of ['parentThreadId','agentRole','agentNickname','source','model','threadSource']){
+  if(detail[key]!==undefined)merged[key]=detail[key];
+ }
+ if(isInternalThread(listed)||isInternalThread(detail))merged.internal=true;
+ return merged;
+}
 export function statusOf(t,turn){let type=t.status?.type;let flags=t.status?.activeFlags??[];if(type==='active')return flags.some(x=>/waiting/i.test(x))?'attention':'active';if(type==='systemError')return 'failed';if(turn?.status==='failed')return 'failed';if(turn?.status==='completed')return 'ended';if(turn?.status==='interrupted')return 'interrupted';return 'unknown';}
 export function normalize(t,turn,checkedAt){let spawn=t.source?.subAgent?.thread_spawn;return {id:t.id,title:redact(t.name||t.preview||'이름 없는 작업').slice(0,220),scope:redact(t.preview).slice(0,700),cwd:redact(t.cwd||'경로 미제공'),project:t.cwd?.split('/').filter(Boolean).at(-1)||'프로젝트 미제공',updatedAt:t.updatedAt,createdAt:t.createdAt,runtime:t.status?.type??'미제공',flags:t.status?.activeFlags??[],status:statusOf(t,turn),lastTurn:turn?{id:turn.id,status:turn.status,completedAt:turn.completedAt,startedAt:turn.startedAt}:null,parentId:t.parentThreadId||spawn?.parent_thread_id||null,role:t.agentRole||spawn?.agent_role||null,nickname:t.agentNickname||spawn?.agent_nickname||null,source:typeof t.source==='string'?t.source:JSON.stringify(t.source),model:t.model??null,checkedAt,verification:'미제공',internal:isInternalThread(t)};}
 export function safeLinks(text){let links=[];for(const m of text.matchAll(/\[([^\]]{1,100})\]\(([^\s)]+)\)/g)){try{let u=new URL(m[2]);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&!/token|secret|key=/i.test(u.href))links.push({label:m[1],url:u.href});}catch{if(m[2].startsWith('/'))links.push({label:m[1],path:m[2]});}}return links.slice(0,15);}
